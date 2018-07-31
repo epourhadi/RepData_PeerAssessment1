@@ -8,7 +8,7 @@ output:
 ---
 
 The aim of the project is to answer a series of questions using data collected from {r} [Fitbit] (www.fitbit.com/se/home), 
-[Nike Fuelband] (www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up] (jawbone.com/up). 
+[Nike Fuelband] (www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up] (www.jawbone.com/up). 
 
 ## Loading and preprocessing the data
 
