@@ -1,10 +1,14 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Ehsan Pourhadi"
+date: "July 31, 2018"
 output: 
   html_document:
     keep_md: true
 ---
 
+The aim of the project is to answer a series of questions using data collected from {r} [Fitbit] (www.fitbit.com/se/home), 
+[Nike Fuelband] (www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up] (jawbone.com/up). 
 
 ## Loading and preprocessing the data
 
