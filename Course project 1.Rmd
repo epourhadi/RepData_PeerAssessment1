@@ -1,0 +1,185 @@
+---
+title: "project 1"
+author: "Ehsan Pourhadi"
+date: "July 31, 2018"
+output: html_document
+---
+
+## Step no.1
+##Loading and preprocessing the data
+
+
+```{r, echo = TRUE}
+##setting directory
+activity<-read.csv("activity.csv")
+```
+
+##Some preliminaries
+
+```{r}
+dim(activity)
+names(activity)
+head(activity)
+str(activity)
+#total number of missing data
+sum(is.na(activity$steps))/dim(activity)[[1]]
+#converting the date column into date format using lubridate
+library(lubridate)
+activity$date<-ymd(activity$date)
+length(unique(activity$date))
+```
+
+## Step no.2
+##Histogram of the total number of steps taken each day
+
+```{r, echo = TRUE}
+library(ggplot2)
+T1<-data.frame(tapply(activity$steps,activity$date,sum,na.rm=TRUE))
+T1$date<-rownames(T1)
+rownames(T1)<-NULL
+names(T1)[[1]]<-"Total Steps"
+png("plot1.png")
+#Total Steps by date bar chart
+ggplot(T1,aes(y=T1$`Total Steps`,x=T1$date))+geom_bar(stat="identity",color="red") + ylab("Total Steps")+xlab("Date")+ggtitle("Histogram of the total number of steps taken each day")
+dev.off()
+ggplot(T1,aes(y=T1$`Total Steps`,x=T1$date))+geom_bar(stat="identity", color="red") + ylab("Total Steps")+xlab("Date")+ggtitle("Histogram of the total number of steps taken each day")
+#Histogram of total steps
+qplot(T1$`Total Steps`,geom="histogram",xlab="Total Steps",ylab="Counts", main="Total Steps Historgram")
+png("plot2.png")
+qplot(T1$`Total Steps`,geom="histogram",xlab="Total Steps",ylab="Counts", main="Total Steps Historgram")
+dev.off()
+```
+## Step no.3
+##Mean and median number of steps taken each day
+
+```{r, echo = TRUE}
+library(dplyr)
+T2<-data.frame(round(tapply(activity$steps,activity$date,mean,na.rm=TRUE),2))
+T2$date<-rownames(T2)
+rownames(T2)<-NULL
+names(T2)[[1]]<-"Mean Steps"
+temp<-activity%>%select(date,steps) %>% group_by(date) %>% summarise(median(steps))
+names(temp)[[2]]<-"Median Steps"
+T2$median<-temp$`Median Steps`
+T2<-T2 %>% select(date,`Mean Steps`,median)
+```
+
+## Step no.4
+##Time series plot of the average number of steps taken
+
+```{r, echo = TRUE}
+T3<-T2
+T3$date<-as.Date(T3$date,format="%Y-%m-%d")
+ggplot(T3,aes(x=T3$date,y=T3$`Mean Steps`))+geom_bar(stat="identity", color="blue")+scale_x_date()+ylab("Mean Steps Every day")+xlab("Date")+ggtitle("Mean Steps by Date")
+png("plot3.png")
+ggplot(T3,aes(x=T3$date,y=T3$`Mean Steps`))+geom_bar(stat="identity", color="blue")+scale_x_date()+ylab("Mean Steps Every day")+xlab("Date")+ggtitle("Mean Steps by Date")
+dev.off()
+```
+
+## Step no.5
+##The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r, echo = TRUE}
+activity$interval<-factor(activity$interval)
+T4<-aggregate(data=activity,steps~date+interval,FUN="mean")
+T4<-aggregate(data=T4,steps~interval,FUN="max")
+```
+
+## Step no.6 
+##Code to describe and show a strategy for imputing missing data
+
+There are various techniques dealing with this question but only for the 
+convenience we apply the mean/mode value substitution strategy to impute missing values.
+
+```{r, echo = TRUE}
+T5<-activity
+T5$Missing<-is.na(T5$steps)
+T5<-aggregate(data=T5,Missing~date+interval,FUN="sum")
+T5.1<-data.frame(tapply(T5$Missing,T5$date,sum))
+T5.1$date<-rownames(T5.1)
+rownames(T5.1)<-NULL
+names(T5.1)<-c("Missing","date")
+T5.1$date<-as.Date(T5.1$date,format="%Y-%m-%d")
+
+T5.2<-data.frame(tapply(T5$Missing,T5$interval,sum))
+T5.2$date<-rownames(T5.2)
+rownames(T5.2)<-NULL
+names(T5.2)<-c("Missing","Interval")
+
+par(mfrow=c(1,2))
+plot(y=T5.1$Missing,x=T5.1$date,main="Missing Value Dist. by Date")
+plot(y=T5.2$Missing,x=T5.2$Interval,main="Missing Value Dist. by Interval")
+table(activity$date)
+```
+
+The plot shows that the missing values have a very disctinct pattern. For any interval, there always exist 8 missing values. For the date, there are consistantly 288 missing values. In aggregate, there are 8 dates that have missing value. We have no idea for the reason of these missing values but there is a pattern. So, we can find out the mean value imputation is suitable. 
+
+Moreover, it is worth mentioning that every date has 288 data points. It means that the 8 dates have no data points. We can refine the analysis by take a look at these missing values depending on their Weekday and interval parameters to matach with the average.  
+
+
+```{r, echo = TRUE}
+#Dates that have missing values 
+library(lubridate)
+T5.3<-as.data.frame(T5.1) %>% select(date,Missing) %>% arrange(desc(Missing))
+T5.3<-T5.3[which(T5.3$Missing!=0),]
+T5.3$Weekday<-wday(T5.3$date,label=TRUE)
+T5.4<-activity
+T5.4$weekday<-wday(T5.4$date,label=TRUE)
+#Finding the mean of steps every monday, and every interval
+T5.5<-aggregate(data=T5.4,steps~interval+weekday,FUN="mean",na.rm=TRUE)
+#Merge the pre-imputation table T5.4 table with the average table T5.5
+T5.6<-merge(x=T5.4,y=T5.5,by.x=c("interval","weekday"),by.y=c("interval","weekday"),all.x=TRUE)
+#Conditionally replacing the steps.x column NA value with the values from steps.y column value 
+T5.6$Steps.Updated<-0
+for (i in 1:dim(T5.6)[[1]]){
+if(is.na(T5.6[i,3])){T5.6[i,6]=T5.6[i,5]}
+else {T5.6[i,6]=T5.6[i,3]}
+}
+#Now simplify the imputed analytical data frame
+T5.6 <-T5.6  %>% select(date,weekday,interval,Steps.Updated)
+names(T5.6)[[4]]<-"Steps"
+
+```
+## Step no.7
+## Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r, echo = TRUE}
+png("plot4.png")
+qplot(T5.6$Steps,geom="histogram",main="Histogram of the total number of steps taken each day after imputation",xlab="Steps",ylab="Count")
+dev.off()
+qplot(T5.6$Steps,geom="histogram",main="Histogram of the total number of steps taken each day after imputation",xlab="Steps",ylab="Count")
+
+```
+
+## Step no.8
+##Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r, echo = TRUE}
+install.packages("hexbin",repos = "http://cran.us.r-project.org")
+T6<-T5.6
+levels(T6$weekday)<-c(1,2,3,4,5,6,7)
+T6$WDWE<-T6$weekday %in% c(1,2,3,4,5)
+T6.1<-aggregate(data=T6,Steps~interval+WDWE,mean,na.rm=TRUE)
+T6.1$WDWE<-as.factor(T6.1$WDWE)
+levels(T6.1$WDWE)<-c("Weekend","Weekday")
+png("plot5.png")
+ggplot(data=T6.1,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x_discrete(breaks = seq(0, 2500, by = 300))+ylab("Mean Steps")+xlab("Intervals")+ggtitle("Mean steps across intervals by Weekend and Weekday")
+dev.off()
+ggplot(data=T6.1,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x_discrete(breaks = seq(0, 2500, by = 300))+ylab("Mean Steps")+xlab("Intervals")+ggtitle("Mean steps across intervals by Weekend and Weekday")
+
+#Producing the panel plot
+T6.1$interval<-as.numeric(as.character(T6.1$interval))
+library(lattice)
+xyplot(data=T6.1,Steps~interval|WDWE, grid = TRUE, type = c("p", "smooth"), lwd = 4,panel = panel.smoothScatter)
+library(hexbin)
+hexbinplot(data=T6.1,Steps~interval|WDWE, aspect = 1, bins=50)
+png("plot6.png")
+xyplot(data=T6.1,Steps~interval|WDWE, grid = TRUE, type = c("p", "smooth"), lwd = 4,panel = panel.smoothScatter)
+dev.off()
+
+png("plot7.png")
+hexbinplot(data=T6.1,Steps~interval|WDWE, aspect = 1, bins=50)
+dev.off()
+
+```
+
